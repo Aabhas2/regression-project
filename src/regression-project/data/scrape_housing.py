@@ -56,6 +56,25 @@ def extract_bhk(title):
     except:
         return None
 
+
+
+def extract_age(text):
+    """Extract property age from text"""
+    try:
+        if not text:
+            return None
+        # Look for patterns like "5 year old", "new construction", "ready to move"
+        if 'new construction' in text.lower() or 'under construction' in text.lower():
+            return 0
+        elif 'ready to move' in text.lower():
+            return 1
+        age_match = re.search(r'(\d+)\s*year[s]?\s*old', text.lower())
+        if age_match:
+            return int(age_match.group(1))
+        return None
+    except:
+        return None
+
 def clean_text(text):
     """Clean and normalize text"""
     if not text:
@@ -63,10 +82,9 @@ def clean_text(text):
     return ' '.join(text.strip().split())
 
 # Configuration
-MAX_PROPERTIES = 10000  # Target number of properties
+MAX_PROPERTIES = 12000  # Target number of properties (increased for 10K+ goal)
 MAX_RETRIES = 3  # Maximum number of retries for failed pages
-SAVE_INTERVAL = 500  # Save progress every 500 properties
-MAX_PAGES_PER_LOCATION = 100  # Max pages per location to avoid infinite loops
+SAVE_INTERVAL = 500  # Save data every N properties to prevent data loss
 
 # Configure webdriver
 options = webdriver.ChromeOptions()
@@ -96,38 +114,18 @@ driver.set_page_load_timeout(30)
 
 # Initialize variables
 data = []
-all_locations = [
-    "new_delhi/new_delhi",
-    "gurgaon/gurgaon", 
-    "noida/noida",
-    "greater_noida/greater_noida",
-    "faridabad/faridabad",
-    "ghaziabad/ghaziabad",
-    "mumbai/mumbai",
-    "bangalore/bangalore",
-    "pune/pune",
-    "hyderabad/hyderabad",
-    "chennai/chennai",
-    "kolkata/kolkata"
-]
+page = 1
+max_pages = 500  # Maximum number of pages to scrape (increased for 10K+ properties)
+processed_listings = set()  # Track processed listings to avoid duplicates
 
 print('\nStarting data collection...')
-print(f"Target: {MAX_PROPERTIES} properties across {len(all_locations)} cities")
+print(f"Target: {MAX_PROPERTIES} properties")
 
 try:
-    for location_idx, location in enumerate(all_locations):
-        if len(data) >= MAX_PROPERTIES:
-            break
-            
-        print(f"\n{'='*20} LOCATION {location_idx+1}/{len(all_locations)}: {location.upper()} {'='*20}")
-        base_url = f"https://housing.com/in/buy/{location}?page={{}}"
+    base_url = "https://housing.com/in/buy/new_delhi/new_delhi?page={}"
     
-        page = 1
-        location_data_count = 0
-        
-        
-        while len(data) < MAX_PROPERTIES and page <= MAX_PAGES_PER_LOCATION and location_data_count < 2000:
-            current_url = base_url.format(page)
+    while len(data) < MAX_PROPERTIES and page <= max_pages:
+        current_url = base_url.format(page)
         print(f"\n{'='*10} Page {page} {'='*10}")
         
         # Load the page
@@ -162,6 +160,11 @@ try:
                     # Get the listing ID
                     listing_id = article.get_attribute('data-listingid')
                     
+                    # Skip if already processed (avoid duplicates)
+                    if listing_id in processed_listings:
+                        continue
+                    processed_listings.add(listing_id)
+                    
                     # Extract all necessary information
                     article_html = article.get_attribute('outerHTML')
                     soup = BeautifulSoup(article_html, 'html.parser')
@@ -180,6 +183,8 @@ try:
                     area = None
                     location = None
                     bhk = None
+                    age = None
+                    parking = None
 
                     # Get all text from the article
                     all_text = soup.get_text()
@@ -223,12 +228,8 @@ try:
                     if bhk_match:
                         bhk = int(bhk_match.group(1))
                     
-                    # Strategy 5: Extract comprehensive property features
-                    
-                    # Basic location from current city
-                    city = location.split('/')[0].replace('_', ' ').title()
-                    
-                    # Detailed location/address
+                    # Strategy 5: Try to find location/address
+                    # Look for common location indicators
                     location_patterns = [
                         r'(Sector\s+\d+[A-Z]*)',
                         r'(Greater\s+Noida)',
@@ -236,12 +237,7 @@ try:
                         r'(Gurgaon)',
                         r'(Delhi)',
                         r'(Faridabad)',
-                        r'(Ghaziabad)',
-                        r'(Phase\s+\d+)',
-                        r'([A-Z][a-z]+\s+Vihar)',
-                        r'([A-Z][a-z]+\s+Extension)',
-                        r'([A-Z][a-z]+pur)',
-                        r'([A-Z][a-z]+\s+Enclave)'
+                        r'(Ghaziabad)'
                     ]
                     
                     for pattern in location_patterns:
@@ -250,98 +246,15 @@ try:
                             location = clean_text(location_match.group())
                             break
                     
-                    # Extract additional features for regression model
+                    # Strategy 6: Extract additional features for regression
+                    age = extract_age(all_text)
                     
-                    # Property type
-                    property_type = None
-                    type_patterns = [
-                        r'(apartment|flat)',
-                        r'(villa|bungalow)',
-                        r'(house|kothi)',
-                        r'(duplex)',
-                        r'(penthouse)',
-                        r'(studio)',
-                        r'(plot|land)'
-                    ]
-                    for pattern in type_patterns:
-                        type_match = re.search(pattern, all_text, re.IGNORECASE)
-                        if type_match:
-                            property_type = clean_text(type_match.group())
-                            break
-                    
-                    # Bathrooms
-                    bathrooms = None
-                    bath_match = re.search(r'(\d+)\s*(bath|toilet)', all_text, re.IGNORECASE)
-                    if bath_match:
-                        bathrooms = int(bath_match.group(1))
-                    
-                    # Floor details
-                    floor = None
-                    total_floors = None
-                    floor_match = re.search(r'(\d+)(?:st|nd|rd|th)?\s*floor\s*out\s*of\s*(\d+)', all_text, re.IGNORECASE)
-                    if floor_match:
-                        floor = int(floor_match.group(1))
-                        total_floors = int(floor_match.group(2))
-                    else:
-                        floor_match = re.search(r'(\d+)(?:st|nd|rd|th)?\s*floor', all_text, re.IGNORECASE)
-                        if floor_match:
-                            floor = int(floor_match.group(1))
-                    
-                    # Furnishing status
-                    furnishing = None
-                    if re.search(r'fully\s*furnished', all_text, re.IGNORECASE):
-                        furnishing = 'Fully Furnished'
-                    elif re.search(r'semi\s*furnished', all_text, re.IGNORECASE):
-                        furnishing = 'Semi Furnished'
-                    elif re.search(r'unfurnished', all_text, re.IGNORECASE):
-                        furnishing = 'Unfurnished'
-                    
-                    # Age of property
-                    age = None
-                    age_patterns = [
-                        r'(\d+)\s*year[s]?\s*old',
-                        r'ready\s*to\s*move',
-                        r'under\s*construction',
-                        r'new\s*launch'
-                    ]
-                    for pattern in age_patterns:
-                        age_match = re.search(pattern, all_text, re.IGNORECASE)
-                        if age_match:
-                            if 'year' in age_match.group():
-                                age = int(re.findall(r'\d+', age_match.group())[0])
-                            elif 'ready' in age_match.group().lower():
-                                age = 'Ready to Move'
-                            elif 'construction' in age_match.group().lower():
-                                age = 'Under Construction'
-                            elif 'launch' in age_match.group().lower():
-                                age = 'New Launch'
-                            break
-                    
-                    # Parking
-                    parking = None
-                    if re.search(r'parking|garage', all_text, re.IGNORECASE):
-                        park_match = re.search(r'(\d+)\s*parking', all_text, re.IGNORECASE)
-                        if park_match:
-                            parking = int(park_match.group(1))
-                        else:
-                            parking = 1
-                    
-                    # Balcony
-                    balcony = None
-                    bal_match = re.search(r'(\d+)\s*balcon', all_text, re.IGNORECASE)
-                    if bal_match:
-                        balcony = int(bal_match.group(1))
-                    elif re.search(r'balcony', all_text, re.IGNORECASE):
-                        balcony = 1
-                    
-                    # Amenities (boolean flags)
-                    has_gym = bool(re.search(r'gym|fitness', all_text, re.IGNORECASE))
-                    has_pool = bool(re.search(r'pool|swimming', all_text, re.IGNORECASE))
-                    has_security = bool(re.search(r'security|guard', all_text, re.IGNORECASE))
-                    has_lift = bool(re.search(r'lift|elevator', all_text, re.IGNORECASE))
-                    has_power_backup = bool(re.search(r'power\s*backup|generator', all_text, re.IGNORECASE))
-                    has_garden = bool(re.search(r'garden|park', all_text, re.IGNORECASE))
-                    has_club = bool(re.search(r'club\s*house', all_text, re.IGNORECASE))
+                    # Strategy 7: Extract parking information
+                    parking_match = re.search(r'(\d+)\s*(parking|car)', all_text, re.IGNORECASE)
+                    if parking_match:
+                        parking = int(parking_match.group(1))
+                    elif 'parking' in all_text.lower():
+                        parking = 1
 
                     # Debug output for first few cards
                     if i < 5:
@@ -355,55 +268,27 @@ try:
 
                     # Create comprehensive property data dictionary
                     property_data = {
-                        # Basic identifiers
                         "listing_id": listing_id,
                         "title": title,
-                        "city": city,
-                        "location": location,
-                        
-                        # Price and area (raw and processed)
                         "price_text": price,
                         "area_text": area,
+                        "location": location,
                         "price": extract_price(price) if price else None,
                         "area_sqft": extract_area(area) if area else None,
-                        
-                        # Basic property features
                         "bhk": bhk or extract_bhk(title) if title else None,
-                        "bathrooms": bathrooms,
-                        "property_type": property_type,
-                        
-                        # Location and building features
-                        "floor": floor,
-                        "total_floors": total_floors,
-                        "furnishing": furnishing,
-                        "age": age,
+                        "age_years": age,
                         "parking": parking,
-                        "balcony": balcony,
-                        
-                        # Amenities (boolean features)
-                        "has_gym": has_gym,
-                        "has_pool": has_pool,
-                        "has_security": has_security,
-                        "has_lift": has_lift,
-                        "has_power_backup": has_power_backup,
-                        "has_garden": has_garden,
-                        "has_club": has_club,
-                        
-                        # Derived features for modeling
-                        "price_per_sqft": extract_price(price) / extract_area(area) if (price and area and extract_price(price) and extract_area(area)) else None,
-                        "is_high_floor": floor > 5 if floor else None,
-                        "is_new_property": age == 'New Launch' or age == 'Under Construction' if age else None
+                        "page_scraped": page
                     }
                     
                     data.append(property_data)
-                    location_data_count += 1
                     print(f"Scraped ({len(data)}): {title[:50] if title else 'No Title'}... (ID: {listing_id})")
                     
-                    # Save progress periodically
+                    # Save progress periodically to prevent data loss
                     if len(data) % SAVE_INTERVAL == 0:
                         temp_df = pd.DataFrame(data)
                         temp_df.to_csv(f'housing_data_backup_{len(data)}.csv', index=False)
-                        print(f"\n📁 Progress saved: {len(data)} properties collected")
+                        print(f"\n📁 Backup saved: housing_data_backup_{len(data)}.csv")
                             
                 except Exception as e:
                     print(f"Error processing article {i+1}: {str(e)}")
@@ -412,9 +297,8 @@ try:
                         traceback.print_exc()
                     continue
             
-            # Move to next page within current location
+            # Move to next page
             page += 1
-            print(f"Location progress: {location_data_count} properties from {location}")
             time.sleep(random.uniform(2, 5))  # Increased random delay
             
         except TimeoutException:
@@ -445,21 +329,9 @@ finally:
         # Calculate price per sqft
         df['price_per_sqft'] = df['price'] / df['area_sqft']
         
-        # Reorder columns for better analysis
-        desired_order = [
-            # Identifiers
-            'listing_id', 'title', 'city', 'location',
-            # Target and key features
-            'price', 'price_per_sqft', 'area_sqft', 'bhk', 'bathrooms',
-            # Property characteristics
-            'property_type', 'floor', 'total_floors', 'furnishing', 'age', 'parking', 'balcony',
-            # Amenities
-            'has_gym', 'has_pool', 'has_security', 'has_lift', 'has_power_backup', 'has_garden', 'has_club',
-            # Derived features
-            'is_high_floor', 'is_new_property',
-            # Raw text data
-            'price_text', 'area_text'
-        ]
+        # Reorder columns for regression model
+        desired_order = ['listing_id', 'title', 'price', 'bhk', 'area_sqft', 
+                        'age_years', 'parking', 'location', 'price_per_sqft']
         remaining_cols = [col for col in df.columns if col not in desired_order]
         final_order = desired_order + remaining_cols
         
@@ -470,30 +342,20 @@ finally:
         df.to_csv(output_file, index=False)
         print(f"\n✅ Successfully created {output_file}")
         
-        # Print comprehensive statistics
-        print("\n" + "="*50)
-        print("COMPREHENSIVE DATASET STATISTICS")
-        print("="*50)
+        # Print statistics
+        print("\nDataset Statistics:")
         print(f"Total Properties: {len(df)}")
-        print(f"Cities Covered: {df['city'].nunique()}")
-        print(f"Unique Locations: {df['location'].nunique()}")
-        print("\n💰 PRICE STATISTICS:")
-        print(f"Average Price: ₹{df['price'].mean():,.0f}")
-        print(f"Median Price: ₹{df['price'].median():,.0f}")
-        print(f"Price Range: ₹{df['price'].min():,.0f} - ₹{df['price'].max():,.0f}")
-        print(f"Average Price/sq ft: ₹{df['price_per_sqft'].mean():,.0f}")
-        print("\n🏠 PROPERTY FEATURES:")
-        print(f"Average Area: {df['area_sqft'].mean():,.0f} sq ft")
-        print(f"BHK Distribution:\n{df['bhk'].value_counts().sort_index()}")
-        print(f"\nProperty Types:\n{df['property_type'].value_counts()}")
-        print(f"\nFurnishing Status:\n{df['furnishing'].value_counts()}")
-        print(f"\n🏙️ CITY-WISE DISTRIBUTION:")
-        print(df['city'].value_counts())
-        print(f"\n🎯 FEATURE COVERAGE:")
-        feature_coverage = (df.notna().sum() / len(df) * 100).sort_values(ascending=False)
-        for feature in ['price', 'area_sqft', 'bhk', 'bathrooms', 'floor', 'parking']:
-            if feature in feature_coverage:
-                print(f"{feature}: {feature_coverage[feature]:.1f}% coverage")
+        print(f"Unique Listings: {df['listing_id'].nunique()}")
+        print(f"Average Price: ₹{df['price'].mean():,.2f}")
+        print(f"Average Area: {df['area_sqft'].mean():,.2f} sq ft")
+        print(f"Average Price/sq ft: ₹{df['price_per_sqft'].mean():,.2f}")
+        print(f"\nBHK Distribution:\n{df['bhk'].value_counts().sort_index()}")
+        print(f"\nLocation Distribution:\n{df['location'].value_counts().head(10)}")
+        print(f"\nFeature Completeness:")
+        completeness = (df.notna().sum() / len(df) * 100).round(1)
+        for col in ['price', 'bhk', 'area_sqft', 'age_years', 'parking', 'location']:
+            if col in completeness:
+                print(f"{col}: {completeness[col]}%")
         
         print("\nDataset Preview:")
         print(df[['title', 'bhk', 'price', 'area_sqft', 'location']].head())
