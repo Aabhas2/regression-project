@@ -1,0 +1,9 @@
+numpy 
+pandas 
+matplotlib 
+seaborn 
+scikit-learn 
+selenium
+selenium-stealth 
+webdriver-manager
+bs4
