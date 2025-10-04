@@ -190,9 +190,6 @@ python src/regression-project/data/scrape_housing.py
 
 ---
 
-## 📞 Contact
-
-**Project Maintainer**: [Your Name]  
 **Status**: Active Development  
 **Last Updated**: October 2025
 
