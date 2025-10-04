@@ -63,7 +63,6 @@ def extract_age(text):
     try:
         if not text:
             return None
-        # Look for patterns like "5 year old", "new construction", "ready to move"
         if 'new construction' in text.lower() or 'under construction' in text.lower():
             return 0
         elif 'ready to move' in text.lower():
@@ -82,7 +81,7 @@ def clean_text(text):
     return ' '.join(text.strip().split())
 
 # Configuration
-MAX_PROPERTIES = 12000  # Target number of properties (increased for 10K+ goal)
+MAX_PROPERTIES = 12000  # Target number of properties 
 MAX_RETRIES = 3  # Maximum number of retries for failed pages
 SAVE_INTERVAL = 500  # Save data every N properties to prevent data loss
 
@@ -145,7 +144,6 @@ try:
                 except Exception:
                     print("No cookie consent found or not clickable.")
             
-            # Wait for property cards to load - target actual property articles
             property_articles = WebDriverWait(driver, 20).until(
                 EC.presence_of_all_elements_located((By.CSS_SELECTOR, "article[data-listingid]"))
             )
@@ -160,7 +158,7 @@ try:
                     # Get the listing ID
                     listing_id = article.get_attribute('data-listingid')
                     
-                    # Skip if already processed (avoid duplicates)
+                    # Skip if already processed
                     if listing_id in processed_listings:
                         continue
                     processed_listings.add(listing_id)
@@ -189,7 +187,7 @@ try:
                     # Get all text from the article
                     all_text = soup.get_text()
                     
-                    # Strategy 1: Find title in link tags
+                    # Find title in link tags
                     title_links = soup.find_all("a")
                     for link in title_links:
                         link_text = clean_text(link.get_text())
@@ -197,7 +195,7 @@ try:
                             title = link_text
                             break
                     
-                    # Strategy 2: Extract price using regex
+                    # Extract price using regex
                     price_patterns = [
                         r'₹\s*([\d.,]+)\s*(Lac|Lakh|Cr|Crore)',
                         r'([\d.,]+)\s*(Lac|Lakh|Cr|Crore)',
@@ -210,7 +208,7 @@ try:
                             price = clean_text(price_match.group())
                             break
                     
-                    # Strategy 3: Extract area using regex
+                    # Extract area using regex
                     area_patterns = [
                         r'([\d.,]+)\s*(sq\.?\s*ft|sqft|sq\s*feet)',
                         r'([\d.,]+)\s*(sq\.?\s*m|sqm)',
@@ -223,13 +221,12 @@ try:
                             area = clean_text(area_match.group())
                             break
                     
-                    # Strategy 4: Extract BHK
+                    # Extract BHK
                     bhk_match = re.search(r'(\d+)\s*BHK', all_text, re.IGNORECASE)
                     if bhk_match:
                         bhk = int(bhk_match.group(1))
                     
-                    # Strategy 5: Try to find location/address
-                    # Look for common location indicators
+                    # Try to find location/address
                     location_patterns = [
                         r'(Sector\s+\d+[A-Z]*)',
                         r'(Greater\s+Noida)',
@@ -246,10 +243,10 @@ try:
                             location = clean_text(location_match.group())
                             break
                     
-                    # Strategy 6: Extract additional features for regression
+                    # Extract additional features for regression
                     age = extract_age(all_text)
                     
-                    # Strategy 7: Extract parking information
+                    # Extract parking information
                     parking_match = re.search(r'(\d+)\s*(parking|car)', all_text, re.IGNORECASE)
                     if parking_match:
                         parking = int(parking_match.group(1))
@@ -292,7 +289,7 @@ try:
                             
                 except Exception as e:
                     print(f"Error processing article {i+1}: {str(e)}")
-                    if i < 3:  # Debug first few articles
+                    if i < 3:  # Debug 
                         import traceback
                         traceback.print_exc()
                     continue
