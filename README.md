@@ -13,7 +13,7 @@ This project is building a comprehensive regression playground/simulator that ac
 
 ## 🚀 Project Phases
 
-### ✅ **Phase 0/1: MVP (Current)**
+### ✅ **MVP**
 - [x] **Project Structure**: Clean organization with data, notebooks, and source directories
 - [x] **Data Collection**: Web scraping pipeline for housing.com (12K+ properties)
 - [x] **EDA & Analysis**: Comprehensive exploratory data analysis in Jupyter notebooks
@@ -21,18 +21,6 @@ This project is building a comprehensive regression playground/simulator that ac
 - [ ] **Model Training**: Multiple regression algorithms with hyperparameter tuning
 - [ ] **Model Comparison**: Metrics comparison (MAE, RMSE, R²) and visualization
 - [ ] **Basic UI**: Streamlit interface for predictions
-
-### 🔄 **Phase 2: Automation (Planned)**
-- [ ] Automated EDA report generation
-- [ ] Upload arbitrary dataset capability
-- [ ] Experiment tracking and model versioning
-
-### 🎯 **Phase 3: Deployment (Future)**
-- [ ] Docker containerization
-- [ ] API development (FastAPI/Flask)
-- [ ] CI/CD pipeline
-- [ ] Cloud deployment
-
 ---
 
 ## 📊 Current Status
@@ -98,14 +86,9 @@ regression-project/
 - **Seaborn** - Statistical visualization
 - **Jupyter** - Interactive analysis
 
-### **Machine Learning (Planned)**
+### **Machine Learning**
 - **Scikit-learn** - ML algorithms and preprocessing
 - **GridSearchCV** - Hyperparameter tuning
-
-### **UI & Deployment (Planned)**
-- **Streamlit** - Interactive web interface
-- **Docker** - Containerization
-- **FastAPI** - REST API development
 
 ---
 
@@ -156,36 +139,10 @@ python src/regression-project/data/scrape_housing.py
 
 ---
 
-## 🎯 Next Steps
-
-### **Immediate (This Week)**
-1. **Complete model training pipeline**
-   - Implement sklearn models with cross-validation
-   - Add hyperparameter tuning with GridSearchCV
-   - Create model comparison framework
-
-2. **Basic Streamlit UI**
-   - Model selection interface
-   - Prediction input form
-   - Results visualization
-
-### **Short Term (Next 2 Weeks)**
-1. **Automated preprocessing pipeline**
-2. **Model persistence and loading**
-3. **Performance metrics dashboard**
-
-### **Medium Term (Next Month)**
-1. **Upload dataset functionality**
-2. **Experiment tracking**
-3. **API development**
-
----
-
 ## 📝 Notes
 
 - **Dataset Updates**: Scraper can be run periodically for fresh data
 - **Model Performance Target**: R² > 0.85 for housing price prediction
-- **Scalability**: Architecture designed for multiple datasets and model types
 - **Reproducibility**: All preprocessing steps documented and automated
 
 ---
